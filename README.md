@@ -65,7 +65,7 @@ loop
 ```
 do
   [continue]
-	[break]
+  [break]
 loop
 ```
 
@@ -77,10 +77,10 @@ i = 0
 do
 
   if i > 10 then
-	  break
-	end if
+    break
+  end if
 
-	i = i + 1
+  i = i + 1
 
 loop
 ```
@@ -94,8 +94,8 @@ is 1, only the immediate enclosing structure is broken out of.
 ```
 do
   do
-	  break 2
-	loop
+    break 2
+  loop
 loop
 ```
 
@@ -123,7 +123,7 @@ sub get_user_name
 as string
 
   var name string
-	name = select name from users where id = {id};
+  name = select name from users where id = {id};
   return name
 end sub
 ```
