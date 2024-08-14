@@ -4,6 +4,8 @@
 
 ### Instruction Separation
 
+Terminated with a line break at the end of each statement.
+
 ### Comments
 
 ```
