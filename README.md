@@ -144,4 +144,16 @@ end sub
 var user_name string
 user_name = get_user_name(1)
 ```
+## Features
 
+### Command Line
+
+```sh
+$ php pecel.php
+```
+
+### Library
+
+```php
+<?php require_once('libpecel.php');
+```
