@@ -42,9 +42,9 @@ var users cursor
 users = select id, name from users;
 
 do
-	if fetch(users) = 0 then
-	  break
-	end if
+  if fetch(users) = 0 then
+    break
+  end if
 loop
 ```
 
@@ -59,6 +59,16 @@ loop
 ## Control Structures
 
 ### Conditional Statement
+
+```
+if _condition_ then
+  _statement_
+else if _condition_ then
+  _statement_
+else
+  _statement_
+end if
+```
 
 ### Loop
 
