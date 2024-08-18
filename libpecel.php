@@ -91,8 +91,6 @@ function pecel_load($text){
 			);
 	}
 
-	var_dump($pecel->element);
-
 	return $pecel;
 }
 
