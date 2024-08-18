@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
-class PecelProgram {
+class PecelProgram extends PecelFunction {
+
 	public PecelElement $element;
+
 	public function __construct() {
 		$this->element = new PecelElement;
 		$this->element->line = 0;
@@ -20,17 +22,40 @@ class PecelElement {
 
 	public bool $has_next_element = false;
 	public PecelElement $next_element;
+	public PecelFunction $owner_function;
 }
 
 class PecelFunction extends PecelElement {
 	public string $name;
 	public array $arguments;
+	public array $variables;
 	public function __construct() {
 		$this->arguments = array();
+		$this->variables = array();
 	}
 }
 
 class PecelComment extends PecelElement {}
+
+class PecelVariable extends PecelElement {
+	public string $name;
+}
+
+class PecelBool extends PecelVariable {
+	public bool $value;
+}
+
+class PecelInteger extends PecelVariable {
+	public int $value;
+}
+
+class PecelFloat extends PecelVariable {
+	public float $value;
+}
+
+class PecelString extends PecelVariable {
+	public string $value;
+}
 
 class PecelSplitResult {
 	public string $text;
@@ -53,6 +78,7 @@ function pecel_load($text){
 	$pecel->element->next_text = $text;
 	$pecel->element->line = 0;
 	$pecel->element->column = 0;
+	$pecel->element->owner_function = $pecel;
 
 	pecel_set_element($pecel->element);
 
@@ -78,6 +104,10 @@ function pecel_set_element($element) : bool {
 		array_push($element_types, "PecelComment");
 	}
 
+	if (pecel_is_variable($element) == true) {
+		array_push($element_types, "PecelVariable");
+	}
+
 	if (count($element_types) > 1) {
 		throw new \Exception("Parse Error. Conflict."
 			." ".implode(", ", $element_types)
@@ -94,6 +124,8 @@ function pecel_set_element($element) : bool {
 		pecel_set_function($element);
 	} elseif ($element_types[0] == "PecelComment") {
 		pecel_set_comment($element);
+	} elseif ($element_types[0] == "PecelVariable") {
+		pecel_set_variable($element);
 	} else {
 		throw new \Exception("Parse Error."
 			." element_type is not defined."
@@ -114,6 +146,98 @@ function pecel_load_file($file){
 	return pecel_load($text);
 }
 
+/**
+ * Variable declaration.
+ * Syntax:
+ *  - var<SPACE><NAME><SPACE><TYPE>
+ *  - var<SPACE><NAME><SPACE><TYPE>=<VALUE>
+ **/
+
+function pecel_is_variable(PecelElement $element){
+	if (substr($element->next_text, 0, 4) == "var ") {
+		return true;
+	}
+	return false;
+}
+
+function pecel_set_variable(PecelElement $element){
+
+	$name_pattern  = "([a-z]([a-z0-9_]*[a-z0-9])*)";
+	$type_pattern  = "(bool|int|float|string|cursor)";
+	$value_pattern = "([^ \t]+)";
+	// eol - end of line
+	$eol_pattern = "[\n]+";
+
+	$name  = null;
+	$type  = null;
+	$value = null;
+	$offset = 0;
+
+	// var i int
+	// var i2 int
+	// var i_2 int
+
+	$pattern = "/^var"
+		." +{$name_pattern}"
+		." +{$type_pattern}"
+		."{$eol_pattern}"
+		."/";
+
+	if (	is_null($name) == true
+		&&	$result = preg_match($pattern, $element->next_text, $match)
+		) {
+		$name = $match[1];
+		$type = $match[3];
+		$offset = strlen($match[0]);
+	}
+
+	// var i int = 0
+
+	$pattern = "/^var"
+		." +{$name_pattern}"
+		." +{$type_pattern}"
+		." *= *{$value_pattern}"
+		."{$eol_pattern}"
+		."/";
+
+	if (	is_null($name) == true
+		&&	$result = preg_match($pattern, $element->next_text, $match)
+		) {
+		$name = $match[1];
+		$type = $match[3];
+		$offset = strlen($match[0]);
+		$value = $match[4];
+	}
+
+	if (is_null($name) == true){
+		throw new \Exception("Invalid syntax.");
+	}
+
+	if ($type == "int") {
+		$variable = new PecelInteger;
+	} else {
+		throw new \Exception("Invalid type."
+			."\n".var_export($match, true)
+			);
+	}
+
+	$variable->name = $name;
+	if (is_null($value) == false) {
+		if ($type == "int") {
+			$variable->value = intval($value);
+		} else {
+			throw new \Exception("Type '{$type}' is invalid.");
+		}
+	}
+	$variable->next_text = substr($element->next_text, $offset);
+	$variable->owner_function = $element->owner_function;
+
+// 	$variable->owner_function->variables->
+
+	$element->has_next_element = true;
+	$element->next_element = $variable;
+}
+
 // --<SPACE><COMMENT>
 // -- this is a comment
 
@@ -130,6 +254,7 @@ function pecel_set_comment(PecelElement $element){
 
 	$match = pecel_split(array("\n"), $element->next_text);
 	$comment->next_text = $match->next_text;
+	$comment->owner_function = $element->owner_function;
 
 	$element->has_next_element = true;
 	$element->next_element = $comment;
@@ -156,6 +281,7 @@ function pecel_set_function(PecelElement $element){
 	$argument = $match[3];
 	array_push($function->arguments, $argument);
 	$function->next_text = substr($element->next_text, strlen($match[0]));
+	$function->owner_function = $element->owner_function;
 
 	$element->next_element = $function;
 	$element->has_next_element = true;
@@ -207,6 +333,8 @@ function pecel_exec_element(PecelElement $element){
 	if ($element_type == "PecelFunction") {
 		pecel_exec_function($element);
 	} elseif ($element_type == "PecelComment") {
+		// do nothing
+	} elseif ($element_type == "PecelInteger") {
 		// do nothing
 	} else {
 		throw new \Exception("Element type '{$element_type}' is not supported.");
