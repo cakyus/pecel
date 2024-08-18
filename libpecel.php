@@ -49,29 +49,31 @@ function pecel_load($text){
 	// > identify next element
 	// > check elements conflict
 
-	$element_type = "PecelElement";
+	$element_types = array();
 
 	if (pecel_is_function($element) == true) {
-		$next_element_type = "PecelFunction";
-		if ($element_type == "PecelElement") {
-			$element_type = $next_element_type;
-		} else {
-			throw new \Exception("Parse Error. Conflict."
-				." {$element_type} {$next_element_type}"
-				." line ".$element->line." column ".$element->column
-				);
-		}
+		array_push($element_types, "PecelFunction");
 	}
 
-	if ($element_type == "PecelElement") {
+	if (count($element_types) > 1) {
+		throw new \Exception("Parse Error. Conflict."
+			." ".implode(", ", $element_types)
+			." line ".$element->line." column ".$element->column
+			);
+	} elseif (count($element_types) == 0) {
 		throw new \Exception("Parse Error."
 			."'".substr($element->next_text, 0, 10)."..' is invalid."
 			." line ".$element->line." column ".$element->column
 			);
 	}
 
-	if ($next_element_type == "PecelFunction") {
+	if ($element_types[0] == "PecelFunction") {
 		$element = pecel_set_function($element);
+	} else {
+		throw new \Exception("Parse Error."
+			." element_type is not defined."
+			." line ".$element->line." column ".$element->column
+			);
 	}
 
 	return $pecel;
