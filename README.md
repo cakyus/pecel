@@ -84,7 +84,7 @@ loop
 #### Example
 
 ```
-i = 0
+var i int = 0
 
 do
 
@@ -122,7 +122,7 @@ the current loop.
 ## Functions
 
 ```
-sub _name_ _parameters_.. as _type_
+sub _name_ (_parameters_..) _type_
  return _variable_
 end sub
 ```
@@ -130,9 +130,7 @@ end sub
 ### Example
 
 ```
-sub get_user_name
-  id int
-as string
+sub get_user_name (id int) string
 
   var name string
   name = select name from users where id = {id};
@@ -149,7 +147,7 @@ user_name = get_user_name(1)
 ### Command Line
 
 ```sh
-$ php pecel.php
+$ php pecel.php file.sql
 ```
 
 ### Library
@@ -157,3 +155,6 @@ $ php pecel.php
 ```php
 <?php require_once('libpecel.php');
 ```
+
+## Function Reference
+
