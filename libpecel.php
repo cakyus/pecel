@@ -13,12 +13,12 @@ class PecelProgram {
 
 class PecelElement {
 
-	public string $next_text;
+	public string $next_text = "";
 
-	public int $line;
-	public int $column;
+	public int $line = 0;
+	public int $column = 0;
 
-	public bool $has_next_element;
+	public bool $has_next_element = false;
 	public PecelElement $next_element;
 }
 
@@ -50,10 +50,20 @@ function pecel_load($text){
 
 	// set first element
 
-	$element = $pecel->element;
-	$element->next_text = $text;
-	$element->line = 0;
-	$element->column = 0;
+	$pecel->element->next_text = $text;
+	$pecel->element->line = 0;
+	$pecel->element->column = 0;
+
+	pecel_set_element($pecel->element);
+
+	return $pecel;
+}
+
+function pecel_set_element($element) : bool {
+
+	if ($element->next_text == "") {
+		return false;
+	}
 
 	// > identify next element
 	// > check elements conflict
@@ -81,9 +91,9 @@ function pecel_load($text){
 	}
 
 	if ($element_types[0] == "PecelFunction") {
-		$element = pecel_set_function($element);
+		pecel_set_function($element);
 	} elseif ($element_types[0] == "PecelComment") {
-		$element = pecel_set_comment($element);
+		pecel_set_comment($element);
 	} else {
 		throw new \Exception("Parse Error."
 			." element_type is not defined."
@@ -91,7 +101,12 @@ function pecel_load($text){
 			);
 	}
 
-	return $pecel;
+	if ($element->has_next_element == false){
+		return false;
+	}
+
+	pecel_set_element($element->next_element);
+	return true;
 }
 
 function pecel_load_file($file){
@@ -120,7 +135,7 @@ function pecel_set_comment($element){
 	$element->has_next_element = true;
 }
 
-function pecel_is_function($element){
+function pecel_is_function(PecelElement $element){
 	$pattern = "[a-z]([a-z_]*[a-z])*";
 	if (preg_match("/^{$pattern}\s*\(/", $element->next_text)) {
 		return true;
@@ -134,12 +149,13 @@ function pecel_is_function($element){
 function pecel_set_function($element){
 
 	$pattern = "[a-z]([a-z_]*[a-z])*";
-	preg_match("/^({$pattern})\s*\(\'([^\']+)\'\)/", $element->next_text, $match);
+	preg_match("/^({$pattern})\s*\(\'([^\']+)\'\)[\r\n]+/", $element->next_text, $match);
 
 	$function = new PecelFunction;
 	$function->name = $match[1];
 	$argument = $match[3];
 	array_push($function->arguments, $argument);
+	$function->next_text = substr($element->next_text, strlen($match[0]));
 
 	$element->next_element = $function;
 	$element->has_next_element = true;
@@ -178,14 +194,30 @@ function pecel_split(array $separators, string $text) : PecelSplitResult | bool 
  **/
 
 function pecel_exec(PecelProgram $pecel){
-	$element = $pecel->element;
-	if ($element->has_next_element == true) {
-		$element = $element->next_element;
-		$element_type = get_class($element);
-		if ($element_type == "PecelFunction") {
-			pecel_exec_function($element);
-		}
+	if ($pecel->element->has_next_element == false) {
+		return false;
 	}
+	pecel_exec_element($pecel->element->next_element);
+}
+
+function pecel_exec_element(PecelElement $element){
+
+	$element_type = get_class($element);
+
+	if ($element_type == "PecelFunction") {
+		pecel_exec_function($element);
+	} elseif ($element_type == "PecelComment") {
+		// do nothing
+	} else {
+		throw new \Exception("Element type '{$element_type}' is not supported.");
+	}
+
+	if ($element->has_next_element == false) {
+		return false;
+	}
+
+	pecel_exec_element($element->next_element);
+	return true;
 }
 
 function pecel_exec_function(PecelFunction $function){
