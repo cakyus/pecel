@@ -30,6 +30,15 @@ class PecelFunction extends PecelElement {
 	}
 }
 
+class PecelComment extends PecelElement {}
+
+class PecelSplitResult {
+	public string $text;
+	public int $offset;
+	public string $separator;
+	public string $next_text;
+}
+
 
 /**
  * Create program from string
@@ -55,6 +64,10 @@ function pecel_load($text){
 		array_push($element_types, "PecelFunction");
 	}
 
+	if (pecel_is_comment($element) == true) {
+		array_push($element_types, "PecelComment");
+	}
+
 	if (count($element_types) > 1) {
 		throw new \Exception("Parse Error. Conflict."
 			." ".implode(", ", $element_types)
@@ -69,12 +82,16 @@ function pecel_load($text){
 
 	if ($element_types[0] == "PecelFunction") {
 		$element = pecel_set_function($element);
+	} elseif ($element_types[0] == "PecelComment") {
+		$element = pecel_set_comment($element);
 	} else {
 		throw new \Exception("Parse Error."
 			." element_type is not defined."
 			." line ".$element->line." column ".$element->column
 			);
 	}
+
+	var_dump($pecel->element);
 
 	return $pecel;
 }
@@ -84,8 +101,26 @@ function pecel_load_file($file){
 	return pecel_load($text);
 }
 
-// function argument..
-// print('Hello World')
+function pecel_is_comment($element){
+	if (substr($element->next_text, 0, 3) == "-- ") {
+		return true;
+	}
+	return false;
+}
+
+// --<SPACE><COMMENT>
+// -- this is a comment
+
+function pecel_set_comment($element){
+
+	$match = pecel_split(array("\n"), $element->next_text);
+
+	$comment = new PecelComment;
+
+	$element->next_text = $match->next_text;
+	$element->next_element = $comment;
+	$element->has_next_element = true;
+}
 
 function pecel_is_function($element){
 	$pattern = "[a-z]([a-z_]*[a-z])*";
@@ -94,6 +129,9 @@ function pecel_is_function($element){
 	}
 	return false;
 }
+
+// function argument..
+// print('Hello World')
 
 function pecel_set_function($element){
 
@@ -107,6 +145,34 @@ function pecel_set_function($element){
 
 	$element->next_element = $function;
 	$element->has_next_element = true;
+}
+
+function pecel_split(array $separators, string $text) : PecelSplitResult | bool {
+
+	// find matches
+
+	$result = false;
+
+	foreach ($separators as $separator){
+
+		$offset = strpos($text, $separator);
+		if ($offset === false){
+			continue;
+		}
+
+		if ($result === false) {
+			$result = new PecelSplitResult;
+		} elseif ($offset > $result->offset) {
+			continue;
+		}
+
+		$result->text = substr($text, 0, $offset);
+		$result->offset = $offset;
+		$result->separator = $separator;
+		$result->next_text = substr($text, $offset + strlen($separator));
+	}
+
+	return $result;
 }
 
 /**
