@@ -14,8 +14,15 @@ foreach ($files as $file) {
 	$name = basename($file, ".sql");
 	fwrite(STDOUT, "> {$name} ");
 
-	$p = pecel_load_file($file);
-	pecel_exec($p);
+	$pecel = pecel_load_file($file);
+
+// 	if ($name == "02-comment"){
+// 		ob_end_flush();
+// 		var_dump($pecel);
+// 		exit();
+// 	}
+
+	pecel_exec($pecel);
 
 	$buffer = ob_get_contents();
 

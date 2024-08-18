@@ -114,26 +114,29 @@ function pecel_load_file($file){
 	return pecel_load($text);
 }
 
-function pecel_is_comment($element){
+// --<SPACE><COMMENT>
+// -- this is a comment
+
+function pecel_is_comment(PecelElement $element){
 	if (substr($element->next_text, 0, 3) == "-- ") {
 		return true;
 	}
 	return false;
 }
 
-// --<SPACE><COMMENT>
-// -- this is a comment
-
-function pecel_set_comment($element){
-
-	$match = pecel_split(array("\n"), $element->next_text);
+function pecel_set_comment(PecelElement $element){
 
 	$comment = new PecelComment;
 
-	$element->next_text = $match->next_text;
-	$element->next_element = $comment;
+	$match = pecel_split(array("\n"), $element->next_text);
+	$comment->next_text = $match->next_text;
+
 	$element->has_next_element = true;
+	$element->next_element = $comment;
 }
+
+// function argument..
+// print('Hello World')
 
 function pecel_is_function(PecelElement $element){
 	$pattern = "[a-z]([a-z_]*[a-z])*";
@@ -143,10 +146,7 @@ function pecel_is_function(PecelElement $element){
 	return false;
 }
 
-// function argument..
-// print('Hello World')
-
-function pecel_set_function($element){
+function pecel_set_function(PecelElement $element){
 
 	$pattern = "[a-z]([a-z_]*[a-z])*";
 	preg_match("/^({$pattern})\s*\(\'([^\']+)\'\)[\r\n]+/", $element->next_text, $match);
