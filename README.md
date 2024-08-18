@@ -35,6 +35,8 @@ var user_name string
 user_name = 'John Smith'
 ```
 
+### Boolean
+
 ### Array
 
 ### Cursor
@@ -44,7 +46,7 @@ var users cursor
 users = select id, name from users;
 
 do
-  if fetch(users) = 0 then
+  if fetch(users) then
     break
   end if
 loop
