@@ -11,19 +11,28 @@ sort($files);
 
 foreach ($files as $file) {
 
+	$name = basename($file, ".sql");
+	fwrite(STDOUT, "> {$name} ");
+
 	$p = pecel_load_file($file);
 	pecel_exec($p);
 
 	$buffer = ob_get_contents();
 
-	$name = basename($file, ".sql");
-	$output = dirname($file)."/".$name.".out";
-	$output_text = file_get_contents($output);
+	$output = dirname($file)."/".$name.".txt";
+	if (is_file($output) == true) {
+		$output_text = file_get_contents($output);
+	} else {
+		$output_text = "";
+	}
 
 	if ($buffer === $output_text) {
-		fwrite(STDOUT, "> {$name} OKAY\n");
+		fwrite(STDOUT, "OKAY\n");
 	} else {
-		fwrite(STDOUT, "> {$name} FAIL\n");
+		fwrite(STDOUT, "FAIL\n");
+		fwrite(STDOUT, "expect {$output_text}\n");
+		fwrite(STDOUT, "result {$buffer}\n");
+		exit(1);
 	}
 
 	ob_clean();
