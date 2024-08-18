@@ -194,6 +194,8 @@ function pecel_exec_function(PecelFunction $function){
 	$function_name = $function->name;
 	if ($function_name == "print"){
 		$function_name = "pecel_print";
+	} else {
+		throw new \Exception("Function '{$function_name}' is not defined.");
 	}
 	$function->value = call_user_func_array($function_name, $function->arguments);
 }
@@ -201,7 +203,7 @@ function pecel_exec_function(PecelFunction $function){
 function pecel_print(){
 	$args = func_get_args();
 	$text = implode(" ", $args);
-	fwrite(STDOUT, $text."\n");
+	echo($text."\n");
 	return 0;
 }
 
