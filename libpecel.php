@@ -286,6 +286,12 @@ function pecel_set_function(PecelElement $element){
 	$element->has_next_element = true;
 }
 
+/**
+ * Split string by separators.
+ * The result is PecelSplitResult with the nearest separator.
+ * Return false when no separator found.
+ **/
+
 function pecel_split(array $separators, string $text) : PecelSplitResult | bool {
 
 	// find matches
