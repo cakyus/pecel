@@ -150,7 +150,6 @@ function pecel_load_file($file){
  * Variable declaration.
  * Syntax:
  *  - var<SPACE><NAME><SPACE><TYPE>
- *  - var<SPACE><NAME><SPACE><TYPE>=<VALUE>
  **/
 
 function pecel_is_variable(PecelElement $element){
@@ -364,5 +363,3 @@ function pecel_print(){
 	echo($text."\n");
 	return 0;
 }
-
-

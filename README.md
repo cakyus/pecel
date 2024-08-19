@@ -86,7 +86,7 @@ loop
 #### Example
 
 ```
-var i int = 0
+var i int
 
 do
 
@@ -159,4 +159,3 @@ $ php pecel.php file.sql
 ```
 
 ## Function Reference
-
