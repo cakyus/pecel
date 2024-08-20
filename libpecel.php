@@ -190,24 +190,6 @@ function pecel_set_variable(PecelElement $element){
 		$offset = strlen($match[0]);
 	}
 
-	// var i int = 0
-
-	$pattern = "/^var"
-		." +{$name_pattern}"
-		." +{$type_pattern}"
-		." *= *{$value_pattern}"
-		."{$eol_pattern}"
-		."/";
-
-	if (	is_null($name) == true
-		&&	$result = preg_match($pattern, $element->next_text, $match)
-		) {
-		$name = $match[1];
-		$type = $match[3];
-		$offset = strlen($match[0]);
-		$value = $match[4];
-	}
-
 	if (is_null($name) == true){
 		throw new \Exception("Invalid syntax.");
 	}

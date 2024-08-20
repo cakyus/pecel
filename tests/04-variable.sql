@@ -1,4 +1,4 @@
-var j int = 0
+var j int
 var i int
 var i2 int
 var i2_a int
