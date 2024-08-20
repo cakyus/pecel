@@ -35,9 +35,12 @@ var user_name string
 user_name = 'John Smith'
 ```
 
-### Boolean
-
 ### Array
+
+```
+var user_list array int
+user_list = array(1,2,3,4)
+```
 
 ### Cursor
 

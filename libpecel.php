@@ -41,10 +41,6 @@ class PecelVariable extends PecelElement {
 	public string $name;
 }
 
-class PecelBool extends PecelVariable {
-	public bool $value;
-}
-
 class PecelInteger extends PecelVariable {
 	public int $value;
 }
@@ -162,7 +158,7 @@ function pecel_is_variable(PecelElement $element){
 function pecel_set_variable(PecelElement $element){
 
 	$name_pattern  = "([a-z]([a-z0-9_]*[a-z0-9])*)";
-	$type_pattern  = "(bool|int|float|string|cursor)";
+	$type_pattern  = "(int|float|string|array|cursor)";
 	$value_pattern = "([^ \t]+)";
 	// eol - end of line
 	$eol_pattern = "[\n]+";
