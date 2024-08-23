@@ -17,29 +17,37 @@ Terminated with a line break at the end of each statement.
 ### Integers
 
 ```
-var user_id int
-user_id = 1
+var i int
+i = 1
 ```
 
 ### Float
 
 ```
-var exchange_rate float
-exchange_rate = 0.91
+var f float
+f = 0.91
+```
+
+### Boolean
+
+```
+var b bool
+b = true
 ```
 
 ### String
 
 ```
-var user_name string
-user_name = 'John Smith'
+var s string
+s = 'Hello World !'
 ```
 
 ### Array
 
 ```
-var user_list array int
-user_list = array(1,2,3,4)
+var a int[]
+a = [1,2,3,4]
+a[] = 5
 ```
 
 ### Cursor
@@ -68,33 +76,29 @@ loop
 ### Conditional Statement
 
 ```
-if _condition_ then
-  _statement_
-else if _condition_ then
-  _statement_
+if i > 10 then
+	-- ..
+else if i > 9 then 
+	-- ..
 else
-  _statement_
+	-- ..
 end if
 ```
 
 ### Loop
 
 ```
-do
-  [continue]
-  [break]
-loop
-```
-
-#### Example
-
-```
 var i int
+
+i = 0
 
 do
 
   if i > 10 then
     break
+	else if i = 0 then
+		i = i + 2
+		continue
   end if
 
   i = i + 1
@@ -136,7 +140,6 @@ end sub
 
 ```
 sub get_user_name (id int) string
-
   var name string
   name = select name from users where id = {id};
   return name
