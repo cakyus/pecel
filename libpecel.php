@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+
+
 class PecelProgram extends PecelFunction {
 
 	public PecelElement $element;
@@ -37,20 +39,40 @@ class PecelFunction extends PecelElement {
 
 class PecelComment extends PecelElement {}
 
+/**
+ * Variable declaration.
+ **/
+
 class PecelVariable extends PecelElement {
 	public string $name;
 }
+
+/**
+ * Variable declaration for integer.
+ **/
 
 class PecelInteger extends PecelVariable {
 	public int $value;
 }
 
+/**
+ * Variable declaration for float.
+ **/
+
 class PecelFloat extends PecelVariable {
 	public float $value;
 }
 
+/**
+ * Variable declaration for string.
+ **/
+
 class PecelString extends PecelVariable {
 	public string $value;
+}
+
+class PecelAssignment extends PecelElement {
+	public string $variable_name;
 }
 
 class PecelSplitResult {
@@ -60,6 +82,10 @@ class PecelSplitResult {
 	public string $next_text;
 }
 
+class PecelPattern {
+	const VARIABLE_NAME = "([a-z]([a-z0-9_]*[a-z0-9])*)";
+	const SPACE = "[ \t]";
+}
 
 /**
  * Create program from string
@@ -104,6 +130,10 @@ function pecel_set_element($element) : bool {
 		array_push($element_types, "PecelVariable");
 	}
 
+	if (pecel_is_assigment($element) == true) {
+		array_push($element_types, "PecelAssignment");
+	}
+
 	if (count($element_types) > 1) {
 		throw new \Exception("Parse Error. Conflict."
 			." ".implode(", ", $element_types)
@@ -122,6 +152,8 @@ function pecel_set_element($element) : bool {
 		pecel_set_comment($element);
 	} elseif ($element_types[0] == "PecelVariable") {
 		pecel_set_variable($element);
+	} elseif ($element_types[0] == "PecelAssignment") {
+		pecel_set_assignment($element);
 	} else {
 		throw new \Exception("Parse Error."
 			." element_type is not defined."
@@ -159,8 +191,6 @@ function pecel_set_variable(PecelElement $element){
 
 	$name_pattern  = "([a-z]([a-z0-9_]*[a-z0-9])*)";
 	$type_pattern  = "(int|float|string|array|cursor)";
-	$value_pattern = "([^ \t]+)";
-	// eol - end of line
 	$eol_pattern = "[\n]+";
 
 	$name  = null;
@@ -254,6 +284,36 @@ function pecel_set_function(PecelElement $element){
 	preg_match("/^({$pattern})\s*\(\'([^\']+)\'\)[\r\n]+/", $element->next_text, $match);
 
 	$function = new PecelFunction;
+	$function->name = $match[1];
+	$argument = $match[3];
+	array_push($function->arguments, $argument);
+	$function->next_text = substr($element->next_text, strlen($match[0]));
+	$function->owner_function = $element->owner_function;
+
+	$element->next_element = $function;
+	$element->has_next_element = true;
+}
+
+function pecel_is_assigment(PecelElement $element){
+	$name = PecelPattern::VARIABLE_NAME;
+	$space = PecelPattern::SPACE;
+	if (preg_match("/^{$name}{$space}*=/", $element->next_text, $match) == false) {
+		return false;
+	}
+	return true;
+}
+
+function pecel_set_assignment(PecelElement $element){
+
+	$name = PecelPattern::VARIABLE_NAME;
+	$space = PecelPattern::SPACE;
+
+	preg_match("/^{$name}{$space}*=/", $element->next_text, $match);
+
+	var_dump($match);
+	trigger_error("here", E_USER_NOTICE); exit();
+
+	$assignment = new PecelAssignment;
 	$function->name = $match[1];
 	$argument = $match[3];
 	array_push($function->arguments, $argument);
