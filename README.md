@@ -1,5 +1,9 @@
 # Pecel Programming Language
 
+It blend with SQL statements.
+
+Version : alpha
+
 ## Basic Syntax
 
 ### Instruction Separation
