@@ -111,7 +111,8 @@ class PecelBoolean extends PecelVariable {
 }
 
 class PecelAssignment extends PecelElement {
-	public string $variable_name;
+	public PecelVariable $variable;
+	public PecelValue $value;
 }
 
 class PecelMatch {
@@ -143,7 +144,7 @@ class PecelPattern {
 	//  - "a1_b"
 	const VARIABLE     = '([a-z]([a-z0-9_]*[a-z0-9])*)';
 	const TYPE         = '(int|float|string|bool|array|cursor)';
-	const SYMBOL       = '([\(\)\[\]\,])';
+	const SYMBOL       = '([\(\)\[\]\,=])';
 	const ROUND_OPEN   = '(\()';
 	const ROUND_CLOSE  = "(\))";
 	const SQUARE_OPEN  = '(\[)';
@@ -224,8 +225,10 @@ function pecel_set_element(PecelElement $element, PecelText $text) : bool {
 			." line ".$element->line." column ".$element->column
 			);
 	} elseif (count($element_types) == 0) {
-		throw new \Exception("Parse Error."
-			."'".substr($text->value, 0, 10)."..' is invalid."
+		$string = substr($text->value, $text->position, 10);
+		$string = str_replace(array("\n"), " ", $string);
+		$string = trim($string);
+		throw new \Exception("Parse Error. '{$string}' is invalid."
 			." line ".$text->line." column ".$text->column
 			);
 	}
@@ -334,6 +337,8 @@ function pecel_get_symbol(PecelText $text) : PecelMatch | bool {
 
 function pecel_get_value(PecelText $text) : PecelValue | bool {
 
+	// TODO remove $string and directly interact with $text.
+
 	$string = substr($text->value, $text->position);
 
 	$type = "unknown";
@@ -412,6 +417,9 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 		$object->text = $value_text;
 
 		$text->position = $text->position + strlen($value_text);
+
+		// zap remaining spaces
+		pecel_match(PecelPattern::SPACE, $text);
 
 		return $object;
 	}
@@ -533,6 +541,7 @@ function pecel_set_variable(PecelElement $element, PecelText $text){
 	}
 
 	$variable->name = $name;
+	$variable->type = $type;
 	$variable->owner_function = $element->owner_function;
 
 	// check duplicated variable declaration
@@ -625,37 +634,41 @@ function pecel_set_function(PecelElement $element, PecelText $text){
 		if ($match->value != ")") {
 			throw new \Exception("Expect symbol ')'.");
 		}
-	} else {
 
-		while (true) {
+		$element->next_element = $function;
+		$element->has_next_element = true;
 
-			// print('Hello')
-			$value = pecel_get_value($text);
-			if ($value) {
-				array_push($function->arguments, $value);
+		return true;
+	}
+
+	while (true) {
+
+		// print('Hello')
+		$value = pecel_get_value($text);
+		if ($value) {
+			array_push($function->arguments, $value);
+		} else {
+			var_dump($value);
+			var_dump($text);
+			var_dump(substr($text->value,$text->position));
+			throw new \Exception("_");
+		}
+
+		$symbol = pecel_get_symbol($text);
+
+		if ($symbol) {
+			if ($symbol->value == ")") {
+				break;
+			} elseif ($symbol->value == ",") {
+				continue;
 			} else {
-				var_dump($value);
-				var_dump($text);
-				var_dump(substr($text->value,$text->position));
-				throw new \Exception("_");
+				throw new \Exception("Expect symbol ',' or ')'. Got '{$symbol->value}'.");
 			}
-
-			$symbol = pecel_get_symbol($text);
-
-			if ($symbol) {
-				if ($symbol->value == ")") {
-					break;
-				} elseif ($symbol->value == ",") {
-					continue;
-				} else {
-					throw new \Exception("Expect symbol ',' or ')'. Got '{$symbol->value}'.");
-				}
-			} else {
-				var_dump($value);
+		} else {
+			var_dump($value);
 // 				var_dump($text);
 // 				var_dump(substr($text->value,$text->position));
-				throw new \Exception("_");
-			}
+			throw new \Exception("_");
 		}
 	}
 
@@ -665,34 +678,64 @@ function pecel_set_function(PecelElement $element, PecelText $text){
 
 function pecel_is_assigment(PecelText $text) : bool {
 
-	$variable = PecelPattern::VARIABLE;
-	$space = PecelPattern::SPACE;
+	$position = $text->position;
 
-	if (preg_match("/^{$variable}{$space}*=/", $text->value, $match) == false) {
+	$match = pecel_match(PecelPattern::VARIABLE, $text);
+	if ($match == false) {
+		pecel_seek($text, $position);
 		return false;
 	}
 
+	$match = pecel_get_symbol($text);
+	if ($match == false) {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	if ($match->value != "=") {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	pecel_seek($text, $position);
 	return true;
 }
 
-function pecel_set_assignment(PecelElement $element){
+function pecel_set_assignment(PecelElement $element, PecelText $text){
 
-	$name = PecelPattern::VARIABLE_NAME;
-	$space = PecelPattern::SPACE;
+	$match = pecel_match(PecelPattern::VARIABLE, $text);
 
-	preg_match("/^{$name}{$space}*=/", $element->next_text, $match);
+	$variable_name = $match->value;
+	$variable_type = "undefined";
 
-	var_dump($match);
-	trigger_error("here", E_USER_NOTICE); exit();
+	// > variable_name must already declared in owner_function
+	foreach ($element->owner_function->variables as $variable) {
+		if ($variable->name == $variable_name) {
+			$variable_type = $variable->type;
+			break;
+		}
+	}
+
+	if ($variable_type == "undefined") {
+		throw new \Exception("Undefined variable '{$variable_name}'");
+	}
+
+	// s = 'Hello World !'
+	$match = pecel_get_symbol($text);
+
+	$value = pecel_get_value($text);
+
+	// > check types
+	if ($variable_type != $value->type) {
+		throw new \Exception("Type '{$variable_type}' can not assign to '{$value->type}'");
+	}
 
 	$assignment = new PecelAssignment;
-	$function->name = $match[1];
-	$argument = $match[3];
-	array_push($function->arguments, $argument);
-	$function->next_text = substr($element->next_text, strlen($match[0]));
-	$function->owner_function = $element->owner_function;
+	$assignment->owner_function = $element->owner_function;
+	$assignment->variable = $variable;
+	$assignment->value = $value;
 
-	$element->next_element = $function;
+	$element->next_element = $assignment;
 	$element->has_next_element = true;
 }
 
@@ -757,6 +800,8 @@ function pecel_exec_element(PecelElement $element){
 		// do nothing
 	} elseif ($element_type == "PecelBoolean") {
 		// do nothing
+	} elseif ($element_type == "PecelAssignment") {
+		pecel_exec_assigment($element);
 	} else {
 		throw new \Exception("Element type '{$element_type}' is not supported.");
 	}
@@ -777,6 +822,10 @@ function pecel_exec_function(PecelFunction $function){
 		throw new \Exception("Function '{$function_name}' is not defined.");
 	}
 	$function->value = call_user_func_array($function_name, $function->arguments);
+}
+
+function pecel_exec_assigment(PecelAssignment $assignment){
+
 }
 
 function pecel_print(){
