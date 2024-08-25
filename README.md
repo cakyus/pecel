@@ -159,13 +159,25 @@ user_name = get_user_name(1)
 ### Command Line
 
 ```sh
-$ php pecel.php file.sql
+$ php pecel.php <file>
 ```
 
 ### Library
 
 ```php
-<?php require_once('libpecel.php');
+<?php
+// load the library
+require_once('libpecel.php');
+// parse source code
+$pecel = pecel_load_file('file.sql');
+// execute
+pecel_exec($pecel);
+```
+
+### Tests
+
+```sh
+$ php tests/test.php
 ```
 
 ## Function Reference
