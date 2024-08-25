@@ -100,9 +100,9 @@ do
 
   if i > 10 then
     break
-	else if i = 0 then
-		i = i + 2
-		continue
+  else if i = 0 then
+    i = i + 2
+    continue
   end if
 
   i = i + 1
