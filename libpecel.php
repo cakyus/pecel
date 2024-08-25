@@ -26,7 +26,6 @@ class PecelElement {
 	public PecelFunction $owner_function;
 
 	public PecelElement $next_element;
-
 	public bool $has_next_element = false;
 
 	public int $line = 0;
@@ -76,6 +75,7 @@ class PecelValue {
 
 class PecelVariable extends PecelElement {
 	public string $name;
+	public string $type;
 }
 
 /**
@@ -135,6 +135,12 @@ class PecelPattern {
 
 	const WORD         = '([a-z]+)';
 	const SPACE        = '([ \r\n\t]+)';
+	// variable name
+	// Examples:
+	//  - "a"
+	//  - "a1"
+	//  - "a1_2"
+	//  - "a1_b"
 	const VARIABLE     = '([a-z]([a-z0-9_]*[a-z0-9])*)';
 	const TYPE         = '(int|float|string|bool|array|cursor)';
 	const SYMBOL       = '([\(\)\[\]\,])';
@@ -257,6 +263,25 @@ function pecel_seek(PecelText $text, int $position) {
 	$text->position = $position;
 }
 
+function pecel_match(string $pattern, PecelText $text) : PecelMatch | bool {
+
+	$space  = PecelPattern::SPACE;
+	$string = substr($text->value, $text->position);
+
+	if (preg_match("/^{$pattern}{$space}*/", $string, $m) == false) {
+		return false;
+	}
+
+	$match = new PecelMatch;
+	$match->value = $m[1];
+	$match->text  = $m[0];
+
+	$text->position = $text->position + strlen($match->text);
+
+	return $match;
+
+}
+
 function pecel_get_word(PecelText $text) : PecelMatch | bool {
 
 	$word = PecelPattern::WORD;
@@ -302,8 +327,7 @@ function pecel_get_symbol(PecelText $text) : PecelMatch | bool {
  *
  * - 123      => integer
  * - 123.45   => float
- * - '123.45' => string, single_quote
- * - "123.45" => string, double_qoute
+ * - '123.45' => string
  * - true     => bool
  * - false    => bool
  **/
@@ -315,33 +339,26 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 	$type = "unknown";
 
 	if (substr($string, 0, 1) == "'") {
-		$type = "single_quote";
-		$separator = "'";
-	} elseif (substr($string, 0, 1) == '"') {
-		$type = "double_quote";
-		$separator = '"';
+		$type = "string";
 	}
 
 	if ($type == "unknown") {
 		throw new \Exception("Type is unknown.");
 	}
 
-	// single_quote
-	// double_quote
+	// string
 
-	if (	$type == "single_quote"
-		||	$type == "double_quote"
-		) {
+	if ($type == "string") {
 
 		$length  = strlen($string);
 		$value   = "";
-		$value_text = $separator;
+		$value_text = "'";
 		$has_eof = false;
 
 		for ($i = 1; $i < $length; $i++) {
 
 			$char = substr($string, $i, 1);
-			if ($char != $separator) {
+			if ($char != "'") {
 				$value .= $char;
 				$value_text .= $char;
 				continue;
@@ -368,7 +385,7 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 			// 'Hello',
 
 			$char_j = substr($string, $j, 1);
-			if ($char_j != $separator) {
+			if ($char_j != "'") {
 				$value_text .= $char;
 				$has_eof = true;
 				break;
@@ -429,6 +446,29 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 }
 
 /**
+ * Get chars until next LF or EOF
+ **/
+
+function pecel_get_line(PecelText $text) : PecelMatch | bool {
+
+	$match = new PecelMatch;
+
+	$match->value = "";
+	$match->text  = "";
+
+	for ($i = $text->position; $i < $text->length; $i++) {
+		$char = substr($text->value, $i, 1);
+		$match->text .= $char;
+		if ($char == "\n") {
+			break;
+		}
+		$match->value .= $char;
+	}
+
+	return $match;
+}
+
+/**
  * Variable declaration.
  * Syntax:
  *  - var<SPACE><NAME><SPACE><TYPE>
@@ -453,34 +493,30 @@ function pecel_is_variable(PecelText $text) : bool {
 	return true;
 }
 
+/**
+ * Variable declaration.
+ **/
+
 function pecel_set_variable(PecelElement $element, PecelText $text){
-
-	$variable = PecelPattern::VARIABLE;
-	$type     = PecelPattern::TYPE;
-
-	$name  = null;
-	$type  = null;
 
 	// var i int
 
+	// "var"
 	$match = pecel_get_word($text);
 
-	$pattern = "/^var+{$name_pattern}"
-		." +{$type_pattern}"
-		."{$eol_pattern}"
-		."/";
-
-	if (	is_null($name) == true
-		&&	$result = preg_match($pattern, $element->next_text, $match)
-		) {
-		$name = $match[1];
-		$type = $match[3];
-		$offset = strlen($match[0]);
+	// "i"
+	$match = pecel_match(PecelPattern::VARIABLE, $text);
+	if ($match == false) {
+		throw new \Exception("Invalid variable name.");
 	}
+	$name = $match->value;
 
-	if (is_null($name) == true){
-		throw new \Exception("Invalid syntax. {$element->next_text}");
+	// "int"
+	$match = pecel_match(PecelPattern::TYPE, $text);
+	if ($match == false) {
+		throw new \Exception("Invalid variable name.");
 	}
+	$type = $match->value;
 
 	if ($type == "int") {
 		$variable = new PecelInteger;
@@ -496,23 +532,18 @@ function pecel_set_variable(PecelElement $element, PecelText $text){
 			);
 	}
 
-	// check duplicated variable declaration
-	foreach ($element->owner_function->variables as $v) {
-		if ($v->name == $name) {
-			throw new \Exception("'{$name}' already defined in line {$v->line}");
-		}
-	}
-
 	$variable->name = $name;
-	if (is_null($value) == false) {
-		if ($type == "int") {
-			$variable->value = intval($value);
-		} else {
-			throw new \Exception("Type '{$type}' is invalid.");
+	$variable->owner_function = $element->owner_function;
+
+	// check duplicated variable declaration
+	foreach ($element->owner_function->variables as $function_variable) {
+		if ($function_variable->name == $variable->name) {
+			throw new \Exception("'{$name}' already defined in"
+				." line {$function_variable->line}"
+				." column {$function_variable->column}"
+				);
 		}
 	}
-	$variable->next_text = substr($element->next_text, $offset);
-	$variable->owner_function = $element->owner_function;
 
 	array_push($variable->owner_function->variables, $variable);
 
@@ -521,7 +552,7 @@ function pecel_set_variable(PecelElement $element, PecelText $text){
 }
 
 function pecel_is_comment(PecelText $text){
-	if (substr($text->value, 0, 3) == "-- ") {
+	if (substr($text->value, $text->position, 3) == "-- ") {
 		return true;
 	}
 	return false;
@@ -530,16 +561,17 @@ function pecel_is_comment(PecelText $text){
 // - begin with "-- "
 // - end with LF or EOF
 
-function pecel_set_comment(PecelElement $element){
+function pecel_set_comment(PecelElement $element, PecelText $text){
 
 	$comment = new PecelComment;
-
-	$match = pecel_split(array("\n"), $element->next_text);
-	$comment->next_text = $match->next_text;
 	$comment->owner_function = $element->owner_function;
+
+	$match = pecel_get_line($text);
 
 	$element->has_next_element = true;
 	$element->next_element = $comment;
+
+	$text->position += strlen($match->text);
 }
 
 
@@ -718,6 +750,8 @@ function pecel_exec_element(PecelElement $element){
 	} elseif ($element_type == "PecelComment") {
 		// do nothing
 	} elseif ($element_type == "PecelInteger") {
+		// do nothing
+	} elseif ($element_type == "PecelFloat") {
 		// do nothing
 	} elseif ($element_type == "PecelString") {
 		// do nothing
