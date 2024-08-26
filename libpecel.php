@@ -341,13 +341,26 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 
 	$string = substr($text->value, $text->position);
 
+	// first character
+	$char = substr($text->value, $text->position, 1);
+	$numbers = "0123456789";
+
 	$type = "unknown";
 
-	if (substr($string, 0, 1) == "'") {
+	if ($char == "'") {
 		$type = "string";
+	} elseif (strpos($numbers, $char) !== false) {
+		// begin with number => integer or float
+		$type = "number";
+	} elseif (substr($text->value, $text->position, 4) == "true") {
+		$type = "bool";
+	} elseif (substr($text->value, $text->position, 5) == "false") {
+		$type = "bool";
 	}
 
 	if ($type == "unknown") {
+		var_dump($string);
+		trigger_error("_", E_USER_NOTICE); exit();
 		throw new \Exception("Type is unknown.");
 	}
 
@@ -417,6 +430,56 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 		$object->text = $value_text;
 
 		$text->position = $text->position + strlen($value_text);
+
+		// zap remaining spaces
+		pecel_match(PecelPattern::SPACE, $text);
+
+		return $object;
+	}
+
+	if ($type == "number") {
+
+		// 1234
+		// 1234.56
+		// 1234.567.90
+
+		$position = $text->position;
+		$value = "";
+		$dot_count = false;
+
+		while (true) {
+
+			$char = substr($text->value, $position, 1);
+
+			if ($char === false) {
+				// eof
+				break;
+			} elseif ($char == "."){
+				if ($dot_count == 0) {
+					$dot_count = 1;
+				} else {
+					break;
+				}
+			} elseif (strpos($numbers, $char) === false){
+				break;
+			}
+
+			$value .= $char;
+			$position++;
+		}
+
+		$object = new PecelValue;
+
+		if ($dot_count == 0) {
+			$object->type = "int";
+			$object->value = intval($value);
+		} else {
+			$object->type = "float";
+			$object->value = floatval($value);
+		}
+
+		$object->text = $value;
+		$text->position = $text->position + strlen($value);
 
 		// zap remaining spaces
 		pecel_match(PecelPattern::SPACE, $text);
