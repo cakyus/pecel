@@ -337,8 +337,6 @@ function pecel_get_symbol(PecelText $text) : PecelMatch | bool {
 
 function pecel_get_value(PecelText $text) : PecelValue | bool {
 
-	// TODO remove $string and directly interact with $text.
-
 	$string = substr($text->value, $text->position);
 
 	// first character
@@ -359,9 +357,7 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 	}
 
 	if ($type == "unknown") {
-		var_dump($string);
-		trigger_error("_", E_USER_NOTICE); exit();
-		throw new \Exception("Type is unknown.");
+		return false;
 	}
 
 	// string
@@ -487,8 +483,6 @@ function pecel_get_value(PecelText $text) : PecelValue | bool {
 		return $object;
 	}
 
-	// float
-	// integer
 	// bool
 
 	var_dump($type);
@@ -706,15 +700,34 @@ function pecel_set_function(PecelElement $element, PecelText $text){
 
 	while (true) {
 
+		// print a value
 		// print('Hello')
+
 		$value = pecel_get_value($text);
 		if ($value) {
 			array_push($function->arguments, $value);
 		} else {
-			var_dump($value);
-			var_dump($text);
-			var_dump(substr($text->value,$text->position));
-			throw new \Exception("_");
+
+			// print a variable
+			// print(i)
+
+			$match = pecel_match(PecelPattern::VARIABLE, $text);
+			$variable_name = $match->value;
+			$variable_exists = false;
+
+			// variable_name must already declared in owner_function
+			foreach ($element->owner_function->variables as $variable) {
+				if ($variable->name == $variable_name) {
+					$variable_exists = true;
+					break;
+				}
+			}
+
+			if ($variable_exists == false) {
+				throw new \Exception("Variable is undefined.");
+			}
+
+			array_push($function->arguments, $variable);
 		}
 
 		$symbol = pecel_get_symbol($text);
@@ -889,6 +902,12 @@ function pecel_exec_function(PecelFunction $function){
 
 function pecel_exec_assigment(PecelAssignment $assignment){
 
+	// check types
+	if ( $assignment->variable->type == $assignment->value->type){
+		$assignment->variable->value = $assignment->value->value;
+	} else {
+		throw new \Exception("Invalid");
+	}
 }
 
 function pecel_print(){
@@ -902,6 +921,10 @@ function pecel_print(){
 			$class = get_class($v);
 			if ($class == "PecelValue") {
 				$v = $v->value;
+			} elseif ($class == "PecelInteger") {
+				$v = strval($v->value);
+			} else {
+				throw new \Exception("Class '{$class}' is invalid.");
 			}
 			$type = gettype($v);
 		}
