@@ -558,6 +558,66 @@ function pecel_is_variable(PecelText $text) : bool {
 	return true;
 }
 
+function pecel_is_comment(PecelText $text){
+	if (substr($text->value, $text->position, 3) == "-- ") {
+		return true;
+	}
+	return false;
+}
+
+function pecel_is_function(PecelText $text){
+
+	// print('Hello World')
+
+	// save original position
+	$position = $text->position;
+
+	$match = pecel_get_word($text);
+	if ($match == false) {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	$match = pecel_get_symbol($text);
+	if ($match == false) {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	if ($match->value != "(") {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	pecel_seek($text, $position);
+	return true;
+}
+
+function pecel_is_assigment(PecelText $text) : bool {
+
+	$position = $text->position;
+
+	$match = pecel_match(PecelPattern::VARIABLE, $text);
+	if ($match == false) {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	$match = pecel_get_symbol($text);
+	if ($match == false) {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	if ($match->value != "=") {
+		pecel_seek($text, $position);
+		return false;
+	}
+
+	pecel_seek($text, $position);
+	return true;
+}
+
 /**
  * Variable declaration.
  **/
@@ -617,13 +677,6 @@ function pecel_set_variable(PecelElement $element, PecelText $text){
 	$element->next_element = $variable;
 }
 
-function pecel_is_comment(PecelText $text){
-	if (substr($text->value, $text->position, 3) == "-- ") {
-		return true;
-	}
-	return false;
-}
-
 // - begin with "-- "
 // - end with LF or EOF
 
@@ -640,34 +693,6 @@ function pecel_set_comment(PecelElement $element, PecelText $text){
 	$text->position += strlen($match->text);
 }
 
-
-function pecel_is_function(PecelText $text){
-
-	// print('Hello World')
-
-	// save original position
-	$position = $text->position;
-
-	$match = pecel_get_word($text);
-	if ($match == false) {
-		pecel_seek($text, $position);
-		return false;
-	}
-
-	$match = pecel_get_symbol($text);
-	if ($match == false) {
-		pecel_seek($text, $position);
-		return false;
-	}
-
-	if ($match->value != "(") {
-		pecel_seek($text, $position);
-		return false;
-	}
-
-	pecel_seek($text, $position);
-	return true;
-}
 
 function pecel_set_function(PecelElement $element, PecelText $text){
 
@@ -750,31 +775,6 @@ function pecel_set_function(PecelElement $element, PecelText $text){
 
 	$element->next_element = $function;
 	$element->has_next_element = true;
-}
-
-function pecel_is_assigment(PecelText $text) : bool {
-
-	$position = $text->position;
-
-	$match = pecel_match(PecelPattern::VARIABLE, $text);
-	if ($match == false) {
-		pecel_seek($text, $position);
-		return false;
-	}
-
-	$match = pecel_get_symbol($text);
-	if ($match == false) {
-		pecel_seek($text, $position);
-		return false;
-	}
-
-	if ($match->value != "=") {
-		pecel_seek($text, $position);
-		return false;
-	}
-
-	pecel_seek($text, $position);
-	return true;
 }
 
 function pecel_set_assignment(PecelElement $element, PecelText $text){
