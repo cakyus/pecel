@@ -81,11 +81,11 @@ loop
 
 ```
 if i > 10 then
-	-- ..
+  -- statements ..
 else if i > 9 then 
-	-- ..
+  -- statements ..
 else
-	-- ..
+  -- statements ..
 end if
 ```
 
