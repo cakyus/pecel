@@ -2,6 +2,27 @@
 
 declare(strict_types=1);
 
+/**
+ * Stream of strings.
+ **/
+
+class PecelStream {
+
+	public string $text;
+
+	public int $index;
+	public int $size;
+
+	public int $line;
+	public int $column;
+}
+
+/**
+ * Text.
+ *
+ * @deprecated use PecelStream
+ **/
+
 class PecelText {
 
 	public string $value;
