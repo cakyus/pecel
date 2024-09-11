@@ -63,10 +63,11 @@ Array is a collection of values with the same type.
 
 ```
 var users array object
-var a array int
-var i int
 
 users = select id, name from users;
+
+var a array int
+var i int
 
 add(a, 1)
 add(a, 2)
