@@ -64,45 +64,25 @@ user.name = 'John Smith'
 Array is a collection of values with the same type.
 
 ```
+var users array object
 var a array int
 var i int
+
+users = select id, name from users;
 
 add(a, 1)
 add(a, 2)
 
 do
+
   if next(a) = false then
     break
   end if
+
   i = get(a)
+
 loop
 ```
-
-### Cursor
-
-Cursor is a collection of objects which created from a sql statement.
-
-```
-var users cursor
-var user object
-
-users = select id, name from users;
-
-do
-  if next(users) = false then
-    break
-  end if
-  print('id {user.id}')
-loop
-```
-
-## Variables
-
-### Predefined Variables
-
-### Variable Scope
-
-## Operators
 
 ## Control Structures
 
@@ -110,11 +90,11 @@ loop
 
 ```
 if i > 10 then
-  -- statements ..
-else if i > 9 then 
-  -- statements ..
+
+else if i > 9 then
+
 else
-  -- statements ..
+
 end if
 ```
 
@@ -164,25 +144,24 @@ the current loop.
 ## Functions
 
 ```
-sub _name_ (_parameters_..) _type_
- return _variable_
+var c int
+
+c = get_active_count()
+
+sub get_active_count() int
+
+  var user_count int
+
+  user_count =
+    select count(*) from users
+    where id = {user_id} where active = 1
+    ;
+
+  return user_count
+
 end sub
 ```
 
-### Example
-
-```
-sub get_user_name (id int) string
-  var name string
-  name = select name from users where id = {id};
-  return name
-end sub
-```
-
-```
-var user_name string
-user_name = get_user_name(1)
-```
 ## Features
 
 ### Command Line
