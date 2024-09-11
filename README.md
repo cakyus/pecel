@@ -151,10 +151,7 @@ sub get_active_count() int
 
   var user_count int
 
-  user_count =
-    select count(*) from users
-    where id = {user_id} where active = 1
-    ;
+  user_count = select count(*) from users where active = 1;
 
   return user_count
 
@@ -187,4 +184,3 @@ pecel_exec($pecel);
 $ php tests/test.php
 ```
 
-## Function Reference
