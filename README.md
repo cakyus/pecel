@@ -51,9 +51,7 @@ s = 'Hello World !'
 An object is collection of attributes.
 
 ```
-var user object
-var user.id int
-var user.name string
+var user (id int, name string)
 
 user.id = 1
 user.name = 'John Smith'
