@@ -46,24 +46,68 @@ var s string
 s = 'Hello World !'
 ```
 
-### Array
+### Object
+
+An object is collection of attributes.
 
 ```
-var a int[]
-a = [1,2,3,4]
-a[] = 5
+var user object
+var user.id int
+var user.name string
+
+user.id = 1
+user.name = 'John Smith'
+```
+
+### Array
+
+Array is a collection of values with the same type.
+
+```
+var a array int
+var i int
+
+add(a, 1)
+add(a, 2)
+
+do
+  if next(a) = false then
+    break
+  end if
+  i = get(a)
+loop
+```
+
+### Array methods
+
+`add(<array>,<value>)` add a value into an array.
+
+`get(<array>,[index])` get value at current `index`.
+
+`del(<array>,<index>)` delete value at `index`.
+
+`set(<array>,<value>,[index])` update value at `index`.
+
+`key(<array>)` get current `index`.
+
+`next(<array>)` update `index` to the `index` of next value .
 ```
 
 ### Cursor
 
+Cursor is a collection of objects which created from a sql statement.
+
 ```
 var users cursor
+var user object
+
 users = select id, name from users;
 
 do
-  if fetch(users) then
+  if next(users) = false then
     break
   end if
+  print('id {user.id')
 loop
 ```
 
