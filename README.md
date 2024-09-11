@@ -78,21 +78,6 @@ do
 loop
 ```
 
-### Array methods
-
-`add(<array>,<value>)` add a value into an array.
-
-`get(<array>,[index])` get value at current `index`.
-
-`del(<array>,<index>)` delete value at `index`.
-
-`set(<array>,<value>,[index])` update value at `index`.
-
-`key(<array>)` get current `index`.
-
-`next(<array>)` update `index` to the `index` of next value .
-```
-
 ### Cursor
 
 Cursor is a collection of objects which created from a sql statement.
