@@ -62,7 +62,7 @@ user.name = 'John Smith'
 Array is a collection of values with the same type.
 
 ```
-var users array object
+var users array (id int, name string)
 
 users = select id, name from users;
 
