@@ -92,7 +92,7 @@ do
   if next(users) = false then
     break
   end if
-  print('id {user.id')
+  print('id {user.id}')
 loop
 ```
 
