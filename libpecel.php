@@ -8,27 +8,12 @@ declare(strict_types=1);
 
 class PecelStream {
 
-	public string $text;
+	public $stream;
 
 	public int $index;
+	// @var int $size
+	// Last known size of the stream.
 	public int $size;
-
-	public int $line;
-	public int $column;
-}
-
-/**
- * Text.
- *
- * @deprecated use PecelStream
- **/
-
-class PecelText {
-
-	public string $value;
-
-	public int $position;
-	public int $length;
 
 	public int $line;
 	public int $column;
@@ -172,18 +157,37 @@ class PecelPattern {
 	const SQUARE_CLOSE = '(\])';
 }
 
+function pecel_load_file(string $file){
+
+	$stream = new PecelStream;
+
+	$stream->stream = fopen($file, "r");
+	$stream->index  = 0;
+	$stream->size   = 0;
+	$stream->line   = 0;
+	$stream->column = 0;
+
+	return pecel_load_stream($stream);
+}
+
 /**
  * Create program from string
  **/
 
 function pecel_load(string $string){
 
-	$text = new PecelText;
-	$text->value    = $string;
-	$text->position = 0;
-	$text->length   = strlen($string);
-	$text->line     = 0;
-	$text->column   = 0;
+	$stream = new PecelStream;
+
+	$stream->stream = fopen("data://text/plain,{$string}", "r");
+	$stream->index  = 0;
+	$stream->size   = 0;
+	$stream->line   = 0;
+	$stream->column = 0;
+
+	return pecel_load_stream($stream);
+}
+
+function pecel_load_stream(PecelStream $stream){
 
 	$function = new PecelProgram;
 	$function->arguments = array();
@@ -194,7 +198,7 @@ function pecel_load(string $string){
 
 	$function->element = $element;
 
-	pecel_set_element($element, $text);
+	pecel_set_element($element, $stream);
 
 	return $function;
 }
@@ -276,11 +280,6 @@ function pecel_set_element(PecelElement $element, PecelText $text) : bool {
 	pecel_set_element($element->next_element, $text);
 
 	return true;
-}
-
-function pecel_load_file($file){
-	$text = file_get_contents($file);
-	return pecel_load($text);
 }
 
 function pecel_seek(PecelText $text, int $position) {
