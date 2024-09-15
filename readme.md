@@ -59,20 +59,20 @@ user.name = 'John Smith'
 
 ### Array
 
-Array is a collection of values with the same type.
+Array is a collection of values.
 
 ```
-var users array (id int, name string)
+var users array
 
 users = select id, name from users;
 
-var a array int
+var a array
 var i int
 
 add(a, 1)
 add(a, 2)
 
-do
+loop
 
   if next(a) = false then
     break
@@ -80,7 +80,7 @@ do
 
   i = get(a)
 
-loop
+end loop
 ```
 
 ## Control Structures
@@ -104,7 +104,7 @@ var i int
 
 i = 0
 
-do
+loop
 
   if i > 10 then
     break
@@ -115,7 +115,7 @@ do
 
   i = i + 1
 
-loop
+end loop
 ```
 
 #### break
@@ -125,11 +125,11 @@ how many nested enclosing structures are to be broken out of. The default value
 is 1, only the immediate enclosing structure is broken out of.
 
 ```
-do
-  do
-    break 2
-  loop
 loop
+  loop
+    break 2
+  end loop
+end loop
 ```
 
 #### continue
