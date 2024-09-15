@@ -282,8 +282,16 @@ function pecel_set_element(PecelElement $element, PecelText $text) : bool {
 	return true;
 }
 
-function pecel_seek(PecelText $text, int $position) {
-	$text->position = $position;
+function pecel_seek(PecelStream $stream, int $index) {
+	$stream->index = $index;
+}
+
+function pecel_read(PecelStream $stream, int $size) {
+	$chars = fread($stream, $size);
+	if ($chars !== false) {
+		$stream->index = $stream->index + strlen($chars);
+	}
+	return $chars;
 }
 
 function pecel_match(string $pattern, PecelText $text) : PecelMatch | bool {
