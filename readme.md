@@ -69,11 +69,11 @@ var a array
 a.add(1)
 a.add(2)
 
-loop
+do
   if a.next() < 0 then
     break
 	end if
-end loop
+loop
 ```
 
 ## Control Structures
@@ -92,14 +92,14 @@ end if
 
 ### Loop
 
-loop .. end loop
+do .. loop
 
 ```
 var i int
 
 i = 0
 
-loop
+do
 
   if i > 10 then
     break
@@ -110,7 +110,7 @@ loop
 
   i = i + 1
 
-end loop
+loop
 ```
 
 #### break
@@ -120,11 +120,11 @@ how many nested enclosing structures are to be broken out of. The default value
 is 1, only the immediate enclosing structure is broken out of.
 
 ```
-loop
-  loop
+do
+  do
     break 2
-  end loop
-end loop
+  loop
+loop
 ```
 
 #### continue
