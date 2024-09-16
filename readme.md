@@ -60,26 +60,19 @@ user.name = 'John Smith'
 ### Array
 
 Array is a collection of values.
+Array methods are `add`, `get`, `set`, `del`, and `next`.
+Array properties are `key`, `value`, and `size`.
 
 ```
-var users array
-
-users = select id, name from users;
-
 var a array
-var i int
 
-add(a, 1)
-add(a, 2)
+a.add(1)
+a.add(2)
 
 loop
-
-  if next(a) = false then
+  if a.next() < 0 then
     break
-  end if
-
-  i = get(a)
-
+	end if
 end loop
 ```
 
@@ -98,6 +91,8 @@ end if
 ```
 
 ### Loop
+
+loop .. end loop
 
 ```
 var i int
