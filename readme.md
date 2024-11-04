@@ -60,8 +60,8 @@ user.name = 'John Smith'
 ### Array
 
 Array is a collection of values.
-Array methods are `add`, `get`, `set`, `del`, and `next`.
-Array properties are `key`, `value`, and `size`.
+Array methods are `add`, `get`, `set`, `del`, `seek` and `next`.
+Array properties are `key`, `value`, `index` and `size`.
 
 ```
 var a array
