@@ -69,16 +69,16 @@ var a array
 a.add(1)
 a.add(2)
 
-loop
+do
   if a.next() < 0 then
     break
 	end if
-end loop
+loop
 ```
 
 ## Control Structures
 
-### Conditional Statement
+### IF .. THEN 
 
 ```
 if i > 10 then
@@ -90,16 +90,14 @@ else
 end if
 ```
 
-### Loop
-
-loop .. end loop
+### DO .. LOOP
 
 ```
 var i int
 
 i = 0
 
-loop
+do
 
   if i > 10 then
     break
@@ -110,30 +108,8 @@ loop
 
   i = i + 1
 
-end loop
-```
-
-#### break
-
-Ends execution of the loop. Accepts an optional numeric argument which tells it
-how many nested enclosing structures are to be broken out of. The default value
-is 1, only the immediate enclosing structure is broken out of.
-
-```
 loop
-  loop
-    break 2
-  end loop
-end loop
 ```
-
-#### continue
-
-Skip the rest of the current loop iteration and continue execution at the
-condition evaluation and then the beginning of the next iteration. Accepts an
-optional numeric argument which tells it how many levels of enclosing loops it
-should skip to the end of. The default value is 1, thus skipping to the end of
-the current loop.
 
 ## Functions
 
