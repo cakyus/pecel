@@ -5,3 +5,12 @@
 Use stream instead load whole source code into string variable. 
 This is enable to handle huge file size of source code.
 
+## Types
+
+ * array
+ * string
+ * float
+ * int
+ * bool
+ * null
+
