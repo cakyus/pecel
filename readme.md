@@ -1,8 +1,12 @@
 # Pecel Programming Language
 
-It blend with SQL statements.
-
 Version : alpha
+
+## Hello World
+
+```
+print 'Hello World'
+```
 
 ## Basic Syntax
 
