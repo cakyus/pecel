@@ -2,6 +2,45 @@
 
 declare(strict_types=1);
 
+const PECEL_SPACES = array(" ", "\n", "\r", "\t");
+
+// end of line character
+const PECEL_EOL = "\n";
+
+class Pecel {
+
+  // main function
+  public PecelFunctionStatement $parent;
+
+  // current database connection
+  public $connection;
+
+  public function load_file(string $file) :void {
+
+    $stream = new PecelStream;
+    $stream->stream = fopen($file, "r");
+
+    $function = new PecelFunctionStatement;
+    $function->name = "__main__";
+    $function->parent = $function;
+    $function->parse_body($stream);
+
+    if ($stream->eof() == false) {
+      $line = $stream->get_line();
+      $line = var_export($line, true);
+      fwrite(STDERR, strlen($line)." ".$line."\n");
+      fwrite(STDERR, "ERROR parse incompleted\n");
+      exit(1);
+    }
+
+    $this->parent = $function;
+  }
+
+  public function exec() {
+    $this->parent->exec($this);
+  }
+}
+
 /**
  * Stream of strings.
  **/
@@ -9,46 +48,571 @@ declare(strict_types=1);
 class PecelStream {
 
 	public $stream;
+  public int $line;
 
-	public int $index;
-	// @var int $size
-	// Last known size of the stream.
-	public int $size;
+  public function __construct() {
+    $this->line = 0;
+  }
 
-	public int $line;
-	public int $column;
+  /**
+   * Create stream from string.
+   **/
+
+  public static function create($string) : PecelStream {
+    $stream = new PecelStream;
+    $stream->load($string);
+    return $stream;
+  }
+
+  public function load(string $string) : void {
+    $stream = fopen("php://memory", "r+");
+    fwrite($stream, $string);
+    rewind($stream);
+    $this->stream = $stream;
+  }
+
+  public function seek(int $index) :int {
+    return fseek($this->stream, $index);
+  }
+
+  public function seek_chars(array $seek_chars) :string {
+
+    $chars = array();
+    $char_count = 0;
+    $nonspace_count = 0;
+
+    while (true) {
+
+      $char = fgetc($this->stream);
+
+      if ($char === false) {
+        break;
+      }
+
+      if ($char == "\n") {
+        $this->line++;
+      }
+
+      if (in_array($char, $seek_chars)) {
+        break;
+      }
+
+      if (  $nonspace_count == 0
+        &&  in_array($char, PECEL_SPACES)
+        ) {
+        continue;
+      }
+
+      array_push($chars, $char);
+      $char_count++;
+      $nonspace_count++;
+    }
+
+    if ($char_count == 0) {
+      return "";
+    }
+
+    // right trim
+
+    for ($i = $char_count - 1; $i > -1; $i--) {
+      $char = $chars[$i];
+      if (in_array($char, PECEL_SPACES)) {
+        unset($chars[$i]);
+        continue;
+      }
+      break;
+    }
+
+    return implode("", $chars);
+  }
+
+  /**
+   * Get non empty line.
+   **/
+
+  public function get_line() :string|null {
+
+    // TODO support line continuation
+
+    // You can use the line-continuation character, which is an underscore
+    // (_), to break a long line of code over several lines in your file.
+    // The underscore must be immediately preceded by a space and
+    // immediately followed by a line terminator (carriage return).
+
+    // https://learn.microsoft.com/en-us/dotnet/visual-basic/misc/bc30999
+
+    while (true) {
+      if ($this->eof()) {
+        return null;
+      }
+      $line = $this->seek_chars(array(PECEL_EOL));
+      if (strlen($line) == 0) {
+        continue;
+      }
+      return $line;
+    }
+  }
+
+  public function get_nonspace() :string|null {
+    while (true) {
+      if ($this->eof()) {
+        return null;
+      }
+      $nonspace = $this->seek_chars(PECEL_SPACES);
+      if (strlen($nonspace) == 0) {
+        continue;
+      }
+      return $nonspace;
+    }
+  }
+
+  public function tell() {
+    return ftell($this->stream);
+  }
+
+  public function passthru() {
+    fpassthru($this->stream);
+  }
+
+  /**
+   * Test EOF (End Of File).
+   **/
+
+  public function eof() :bool {
+    $index = ftell($this->stream);
+    while (true) {
+      $char = fgetc($this->stream);
+      if ($char === false) {
+        fseek($this->stream, $index);
+        return true;
+      }
+      if (in_array($char, PECEL_SPACES)) {
+        continue;
+      }
+      fseek($this->stream, $index);
+      return false;
+    }
+  }
+
+  public function close() {
+    fclose($this->stream);
+  }
 }
 
-/**
- * Program.
- **/
+class PecelElement {}
 
-class PecelProgram extends PecelFunction {
-
-}
-
-class PecelElement {
-
-	public PecelFunction $owner_function;
-
-	public PecelElement $next_element;
-	public bool $has_next_element = false;
-
-	public int $line = 0;
-	public int $column = 0;
-}
-
-class PecelFunction extends PecelElement {
+class PecelFunctionStatement implements PecelIStatement {
 
 	public string $name;
 
-	public array $arguments;
-	public array $variables;
+	public array $variables  = array();
+  public array $statements = array();
+
+  // parent function
+  public PecelFunctionStatement $parent;
+  // current object methods , array of function statements
+  public array $functions = array();
+
+  // return value
+  public string $return_type;
+  public mixed $value;
+
+  /**
+   * sub FUNCTION_NAME(ARGUMENT..) RETURN_TYPE
+   * end sub
+   **/
+
+  public function parse(PecelStream $stream, PecelFunctionStatement $parent) : bool {
+
+    $index = $stream->tell();
+
+    $keyword = $stream->get_nonspace();
+    if ($keyword !== "sub") {
+      $stream->seek($index);
+      return false;
+    }
+
+    $function_name = $stream->seek_chars(array("("));
+    if (is_null($function_name) == true) {
+      $stream->seek($index);
+      return false;
+    }
+
+    // check duplicate function name
+    if (array_key_exists($function_name, $this->functions)) {
+      throw new \Exception("TODO");
+    }
+
+    $parameter_text = $stream->seek_chars(array(")"));
+    if (is_null($parameter_text) == true) {
+      throw new \Exception("parameter_text is not defined");
+    }
+
+    $return_type = $stream->get_nonspace();
+    if (is_null($return_type) == true) {
+      throw new \Exception("return_type_text is not defined");
+    }
+
+    if (in_array($return_type, array("void", "bool", "int", "string"
+      )) == false) {
+      throw new \Exception("Invalid return type. '{$return_type}'");
+    }
+
+    $this->name = $function_name;
+    $this->return_type = $return_type;
+    $this->parent = $parent;
+    $this->parse_body($stream);
+
+    $line = $stream->get_line();
+    if ($line !== "end sub") {
+      throw new \Exception("Invalid keyword. '{$line}'");
+    }
+
+    return true;
+  }
+
+  public function parse_body(PecelStream $stream) : void {
+
+    while (true) {
+
+      if ($stream->eof() == true) {
+        break;
+      }
+
+      $statement = new PecelCommentStatement;
+      if ($statement->parse($stream, $this->parent)) {
+        array_push($this->statements, $statement);
+        continue;
+      }
+
+      $statement = new PecelSqlStatement;
+      if ($statement->parse($stream, $this->parent)) {
+        array_push($this->statements, $statement);
+        continue;
+      }
+
+      // function declaration
+      $statement = new PecelFunctionStatement;
+      if ($statement->parse($stream, $this)) {
+        $this->functions[$statement->name] = $statement;
+        continue;
+      }
+
+      // function call
+      $statement = new PecelMethodStatement;
+      if ($statement->parse($stream, $this->parent)) {
+        array_push($this->statements, $statement);
+        continue;
+      }
+
+      break;
+    }
+  }
+
+  public function exec(Pecel $pecel) : void {
+    foreach ($this->statements as $statement) {
+      $statement->exec($pecel);
+    }
+  }
 }
 
-class PecelComment extends PecelElement {}
+interface PecelIStatement {
+  public function parse(PecelStream $stream, PecelFunctionStatement $parent) : bool;
+  public function exec(Pecel $pecel) : void;
+}
+
+/**
+ * Function Call
+ * print("Hello World")
+ **/
+
+class PecelMethodStatement implements PecelIStatement {
+
+  public string $name;
+  public array $arguments;
+
+  public mixed $value;
+
+  public function parse(PecelStream $stream, PecelFunctionStatement $parent) :bool {
+
+    $index = $stream->tell();
+    $function_name = $stream->get_nonspace();
+
+    if (is_null($function_name) == true) {
+      $stream->seek($index);
+      return false;
+    }
+
+    if ($function_name == "end") {
+      $stream->seek($index);
+      return false;
+    }
+
+    $stream->seek($index);
+    $argument_text = $stream->get_line();
+    if (is_null($argument_text) == true) {
+      throw new \Exception("argument_text is not defined");
+    }
+
+    if (strlen($function_name) == strlen($argument_text)) {
+      $this->parent = $parent;
+      $this->name = $function_name;
+      $this->arguments = array();
+      return true;
+    }
+
+    $index = strpos($argument_text, $function_name." ");
+    if ($index === false) {
+      throw new \Exception("Unknown error.");
+    }
+
+    $argument_text = substr(
+        $argument_text
+      , $index + strlen($function_name) + 1
+      );
+
+    $this->parent = $parent;
+    $this->name = $function_name;
+    $this->arguments = $this->parse_argument($argument_text);
+
+    return true;
+  }
+
+  public function parse_argument(string $argument_text) :array {
+
+    $arguments = array();
+    if (strlen($argument_text) == 0) {
+      return $arguments;
+    }
+
+    $chars = array();
+    $char_count = strlen($argument_text);
+    $status = "NONE";
+    $text = "";
+
+    for ($i = 0; $i < $char_count; $i++) {
+      $char = substr($argument_text, $i, 1);
+      array_push($chars, $char);
+      if ($char == "'") {
+        if ($status == "NONE") {
+          $status = "STRING_BEGIN";
+          continue;
+        } elseif ($status == "STRING_BEGIN") {
+          if ($chars[$i-1] == "\\") {
+            $text .= $char;
+            continue;
+          }
+          // STRING_END
+          array_push($arguments, $text);
+          $status = "NONE";
+          $text = "";
+          continue;
+        }
+        trigger_error("char ".var_export($char, true), E_USER_NOTICE);
+        throw new \Exception("_");
+      } elseif ($char == ",") {
+        trigger_error("char ".var_export($char, true), E_USER_NOTICE);
+        throw new \Exception("_");
+      }
+      if ($status == "STRING_BEGIN") {
+        $text .= $char;
+        continue;
+      }
+      trigger_error("char ".var_export($char, true), E_USER_NOTICE);
+      trigger_error("argument_text ".var_export($argument_text, true), E_USER_NOTICE);
+      trigger_error("this->name ".var_export($this->name, true), E_USER_NOTICE);
+      throw new \Exception("_");
+    }
+
+    foreach ($arguments as $i => $value) {
+      $type = gettype($value);
+      if ($type == "string") {
+        $object = new PecelString;
+        $object->value = $value;
+        $arguments[$i] = $object;
+        continue;
+      }
+      throw new \Exception("_");
+    }
+
+    return $arguments;
+  }
+
+  public function exec(Pecel $pecel) :void {
+    if ($this->name == "print") {
+      call_user_func_array("pecel_print", $this->arguments);
+    } elseif (array_key_exists($this->name, $this->parent->functions)) {
+      // TODO handle arguments
+      // TODO clone function for execution
+      $function = $this->parent->functions[$this->name];
+      $function->exec($pecel);
+    } else {
+      throw new \Exception("Undefined function. ".var_export($this->name, true));
+    }
+  }
+}
+
+class PecelSqlStatement implements PecelIStatement {
+
+  public string $keyword;
+  public string $text;
+
+  public function parse(PecelStream $stream, PecelFunctionStatement $parent) :bool {
+
+    $index = $stream->tell();
+    $keyword = $stream->get_nonspace();
+    $stream->seek($index);
+
+    if (is_null($keyword) == true) {
+      return false;
+    }
+
+    $keywords = array("select", "insert", "update", "delete", "with"
+      , "create", "attach");
+    if (in_array($keyword, $keywords) == false) {
+      return false;
+    }
+
+    $text = $stream->seek_chars(array(";"));
+    if (is_null($text) == true) {
+      throw new \Exception("text is not defined.");
+    }
+
+    $this->text = $text;
+    $this->keyword = $keyword;
+    return true;
+  }
+
+  public function exec(Pecel $pecel) :void {
+
+    if ($this->keyword == "select") {
+
+      // print table
+
+      $rows = array();
+      $column_types = array();
+      $column_sizes = array();
+      $record_index = 0;
+      $query = $pecel->connection->query($this->text);
+
+      while ($record = $pecel->connection->fetch($query)){
+
+        if ($record_index == 0) {
+          $row = array();
+          foreach ($record as $name => $value) {
+            $column_types[$name] = gettype($value);
+            $column_sizes[$name] = strlen($name);
+            $row[$name] = $name;
+          }
+          array_push($rows, $row);
+        }
+
+        foreach ($record as $name => $value) {
+
+          if ($column_types[$name] == "NULL") {
+            $column_types[$name] = gettype($value);
+          }
+
+          if ($column_types[$name] == "string") {
+            if (is_null($value) == true) {
+              $value = "NULL";
+            }
+          } elseif ($column_types[$name] == "integer") {
+            if (is_null($value) == true) {
+              $value = "NULL";
+            } else {
+              $value = strval($value);
+            }
+          } elseif ($column_types[$name] == "NULL") {
+            $value = "NULL";
+          } else {
+            throw new \Exception("Invalid column_type. ".$column_types[$name]);
+          }
+
+          if ($column_sizes[$name] < strlen($value)) {
+            $column_sizes[$name] = strlen($value);
+          }
+
+          $record[$name] = $value;
+        }
+
+        array_push($rows, $record);
+        $record_index++;
+      }
+
+      foreach ($rows as $row_index => $row) {
+        $value_index = 0;
+        foreach ($row as $name => $value) {
+          if ($value_index > 0) {
+            fwrite(STDERR, " ");
+          }
+          if ($row_index == 0) {
+            $value = str_pad($value, $column_sizes[$name], " ", STR_PAD_RIGHT);
+          } elseif ($column_types[$name] == "string") {
+            $value = str_pad($value, $column_sizes[$name], " ", STR_PAD_RIGHT);
+          } elseif ($column_types[$name] == "integer") {
+            $value = str_pad($value, $column_sizes[$name], " ", STR_PAD_LEFT);
+          }
+          fwrite(STDERR, $value);
+          $value_index++;
+        }
+        fwrite(STDERR, "\n");
+      }
+    } else {
+      $pecel->connection->exec($this->text);
+    }
+  }
+}
+
+class PecelCommentStatement implements PecelIStatement {
+
+  public function parse(PecelStream $stream, PecelFunctionStatement $parent) :bool {
+
+    $index = $stream->tell();
+    $line = $stream->get_line();
+
+    if (is_null($line) == true) {
+      $stream->seek($index);
+      return false;
+    }
+
+    if (substr($line, 0, 3) != "-- ") {
+      $stream->seek($index);
+      return false;
+    }
+
+    return true;
+  }
+
+  public function exec(Pecel $pecel) : void {}
+}
+
+/**
+ * Variable declaration.
+ **/
+
+class PecelVariable extends PecelElement {
+	public string $name;
+	public mixed $value;
+}
 
 class PecelValue {
+
+  public static function create(string $string) :
+    PecelString | PecelInteger {
+
+    // "Hello World"
+    if (  substr($string,  0, 1) == "'"
+      &&  substr($string, -1, 1) == "'"
+      &&  strlen($string) > 1
+      ) {
+      $value = new PecelString;
+      $value->value = substr($string, 1, -1);
+      return $value;
+    }
+
+    throw new \Exception("Invalid string. ".var_export($string, true));
+  }
 
 	/**
 	 * @var $type string
@@ -75,45 +639,20 @@ class PecelValue {
 	public $text;
 }
 
-/**
- * Variable declaration.
- **/
-
-class PecelVariable extends PecelElement {
-	public string $name;
-	public string $type;
-}
-
-/**
- * Variable declaration for integer.
- **/
-
-class PecelInteger extends PecelVariable {
+class PecelInteger {
 	public int $value;
 }
 
-/**
- * Variable declaration for float.
- **/
-
-class PecelFloat extends PecelVariable {
+class PecelFloat {
 	public float $value;
 }
 
-/**
- * Variable declaration for string.
- **/
-
-class PecelString extends PecelVariable {
+class PecelString {
 	public string $value;
 }
 
-/**
- * Variable declaration for boolean.
- **/
-
-class PecelBoolean extends PecelVariable {
-	public string $value;
+class PecelBoolean {
+	public bool $value;
 }
 
 class PecelAssignment extends PecelElement {
@@ -133,6 +672,7 @@ class PecelSplitResult {
 	public string $next_text;
 }
 
+/***
 class PecelPattern {
 
 	// value pattern defined in pecel_get_value
@@ -156,18 +696,42 @@ class PecelPattern {
 	const SQUARE_OPEN  = '(\[)';
 	const SQUARE_CLOSE = '(\])';
 }
+****/
 
-function pecel_load_file(string $file){
+/**
+ * SQLite database wrapper.
+ **/
 
-	$stream = new PecelStream;
+class PecelSqliteDatabase {
 
-	$stream->stream = fopen($file, "r");
-	$stream->index  = 0;
-	$stream->size   = 0;
-	$stream->line   = 0;
-	$stream->column = 0;
+  protected $db;
 
-	return pecel_load_stream($stream);
+  public function open($file) {
+    $db = new \SQLite3($file);
+    $this->db = $db;
+  }
+
+  public function exec($sql) {
+    $result = $this->db->exec($sql);
+    if ($result !== false){ return $result; }
+    $text = $this->db->lastErrorMsg()."\n".$sql;
+    throw new \Exception($text);
+  }
+
+  public function query($sql) {
+    $query = @$this->db->query($sql);
+    if ($query !== false) { return $query; }
+    $text = $this->db->lastErrorMsg()."\n".$sql;
+    throw new \Exception($text);
+  }
+
+  public function fetch($query) {
+    return $query->fetchArray(\SQLITE3_ASSOC);
+  }
+
+  public function close() {
+    return $this->db->close();
+  }
 }
 
 /**
@@ -176,61 +740,63 @@ function pecel_load_file(string $file){
 
 function pecel_load(string $string){
 
+	$stream_stream = fopen("php://memory", "r+");
+	fwrite($stream_stream, $string);
+  rewind($stream_stream);
+
 	$stream = new PecelStream;
 
-	$stream->stream = fopen("data://text/plain,{$string}", "r");
+	$stream->stream = $stream_stream;
 	$stream->index  = 0;
-	$stream->size   = 0;
 	$stream->line   = 0;
 	$stream->column = 0;
 
 	return pecel_load_stream($stream);
 }
 
-function pecel_load_stream(PecelStream $stream){
+function pecel_load_stream(PecelStream $stream) : PecelFunction {
 
-	$function = new PecelProgram;
+	$function = new PecelFunction;
+  $function->name = "__main__";
 	$function->arguments = array();
 	$function->variables = array();
+  $function->parse($stream);
 
-	$element = new PecelElement;
-	$element->owner_function = $function;
-
-	$function->element = $element;
-
-	pecel_set_element($element, $stream);
-
-	return $function;
+  return $function;
 }
 
 /**
  * Set next element.
  **/
 
-function pecel_set_element(PecelElement $element, PecelText $text) : bool {
+function pecel_set_element(PecelElement $element, PecelStream $stream) :bool {
 
-	if ($text->length == 0) {
-		return false;
-	}
-
-	if ($text->position == $text->length) {
-		return false;
-	}
+  if ($stream->eof() == true) {
+    return false;
+  }
 
 	// > identify next element
 	// > check elements conflict
 
-	$element_types = array();
+	$element_type = null;
 
-	if (pecel_is_comment($text) == true) {
-		array_push($element_types, "PecelComment");
+	if (pecel_is_comment($stream) == true) {
+    if (is_null($element_type) == false) {
+      throw new \Exception("Conflic '{$element_type}' with 'PecelComment'");
+    }
+		$element_type = "PecelComment";
 	}
 
 	// variable assignment
 
-	if (pecel_is_assigment($text) == true) {
-		array_push($element_types, "PecelAssignment");
+	if (pecel_is_assigment($stream) == true) {
+    if (is_null($element_type) == false) {
+      throw new \Exception("Conflic '{$element_type}' with 'PecelAssignment");
+    }
+		$element_type = "PecelAssignment";
 	}
+
+  trigger_error("_", E_USER_NOTICE); exit();
 
 	// function declaration
 
@@ -586,10 +1152,10 @@ function pecel_is_variable(PecelText $text) : bool {
 	return true;
 }
 
-function pecel_is_comment(PecelText $text){
-	if (substr($text->value, $text->position, 3) == "-- ") {
-		return true;
-	}
+function pecel_is_comment(PecelStream $stream){
+  if ($stream->substr(0,3) == "-- ") {
+    return true;
+  }
 	return false;
 }
 
@@ -621,7 +1187,7 @@ function pecel_is_function(PecelText $text){
 	return true;
 }
 
-function pecel_is_assigment(PecelText $text) : bool {
+function pecel_is_assigment(PecelStream $stream) :bool {
 
 	$position = $text->position;
 
@@ -881,11 +1447,8 @@ function pecel_split(array $separators, string $text) : PecelSplitResult | bool 
  * Execute program
  **/
 
-function pecel_exec(PecelProgram $pecel){
-	if ($pecel->element->has_next_element == false) {
-		return false;
-	}
-	pecel_exec_element($pecel->element->next_element);
+function pecel_exec(PecelFunction $function){
+  $function->exec();
 }
 
 function pecel_exec_element(PecelElement $element){
@@ -938,33 +1501,26 @@ function pecel_exec_assigment(PecelAssignment $assignment){
 	}
 }
 
-function pecel_print(){
+function pecel_print() {
 
 	$args = func_get_args();
 	foreach ($args as $k => $v) {
 
 		$type = gettype($v);
 
-		if ($type == "object"){
-			$class = get_class($v);
-			if ($class == "PecelValue") {
-				$v = $v->value;
-			} elseif ($class == "PecelInteger") {
-				$v = strval($v->value);
-			} else {
-				throw new \Exception("Class '{$class}' is invalid.");
-			}
-			$type = gettype($v);
-		}
+    $class = get_class($v);
+    if ($class == "PecelString") {
+      $v = $v->value;
+    } elseif ($class == "PecelInteger") {
+      $v = strval($v->value);
+    } else {
+      throw new \Exception("Class '{$class}' is invalid.");
+    }
 
-		if ($type == "string") {
-			$args[$k] = $v;
-		} else {
-			throw new \Exception("Type '{$type}' is not supported.");
-		}
+    $args[$k] = $v;
 	}
 
+  array_push($args, "\n");
 	$text = implode(" ", $args);
-	echo($text."\n");
-	return 0;
+	fwrite(STDOUT, $text);
 }

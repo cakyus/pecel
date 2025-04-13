@@ -1,26 +1,50 @@
 <?php
 
-exit( main() );
+/**
+ * Usage: php pecel [OPTIONS] FILE [DB]
+ **/
 
 function main(){
 
-	if ($_SERVER["argc"] != 2) {
-		echo "File is required.\n";
-		return 1;
-	}
+  $commands = array();
+  $options = array();
 
-	$file = $_SERVER["argv"][1];
+  for ($i = 1; $i < $_SERVER["argc"]; $i++) {
+    $argument = $_SERVER["argv"][$i];
+    // command
+    if (substr($argument, 0, 1) != "-") {
+      array_push($commands, $argument);
+      continue;
+    }
+    // TODO option
+    //   "-name", "-name=value"
+  }
 
-	if (is_file($file) == false) {
-		echo "File '{$file}' is not found.\n";
-		return 1;
-	}
+  if (isset($commands[0]) == false) {
+    fwrite(STDERR, "ERROR ".__LINE__." FILE is required\n");
+    exit(1);
+  }
+
+  $db = null;
+  if (isset($commands[1]) == true) {
+    $db = $commands[1];
+  }
+
+  $file = $commands[0];
 
 	include("libpecel.php");
 
-	$pecel = pecel_load_file($file);
-	pecel_exec($pecel);
+  $pecel = new Pecel;
+  $pecel->load_file($file);
+  if (is_null($db) == false) {
+    $database = new PecelSqliteDatabase;
+    $database->open($db);
+    $pecel->connection = $database;
+  }
+  $pecel->exec();
 
 	return 0;
 }
+
+main();
 
